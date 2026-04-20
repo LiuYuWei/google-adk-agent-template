@@ -1,4 +1,4 @@
-.PHONY: venv install setup init-env auth run clean docker-build docker-run deploy destroy
+.PHONY: venv install setup init-env auth enable-apis run clean docker-build docker-run deploy destroy
 
 # 專案設定
 IMAGE_NAME = google-adk-agent-template
@@ -39,6 +39,13 @@ auth:
 	gcloud auth login
 	gcloud auth application-default login
 	gcloud config set project $(PROJECT)
+
+# 啟用 Google Cloud Run 部署所需的 API
+enable-apis:
+	gcloud services enable run.googleapis.com \
+		cloudbuild.googleapis.com \
+		artifactregistry.googleapis.com \
+		aiplatform.googleapis.com
 
 # 啟動 Agent
 run:

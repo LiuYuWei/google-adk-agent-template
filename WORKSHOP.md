@@ -80,6 +80,14 @@ make auth PROJECT=your-project-id
 
 > `make auth` 會依序執行：`gcloud auth login`、`gcloud auth application-default login`、`gcloud config set project`。
 
+登入完成後，啟用部署所需的 Google Cloud API：
+
+```bash
+make enable-apis
+```
+
+> API 啟用後可能需要 1–2 分鐘生效，可以先繼續後續步驟。
+
 ---
 
 ## Step 4：啟動 ADK Web 介面（第一次測試）
@@ -165,15 +173,7 @@ make run
 
 ## Step 7：部署到 Google Cloud Run
 
-### 7-1. 確認所需的 API 已啟用
-
-```bash
-gcloud services enable run.googleapis.com \
-    cloudbuild.googleapis.com \
-    artifactregistry.googleapis.com
-```
-
-### 7-2. 執行部署
+### 7-1. 執行部署
 
 ```bash
 make deploy PROJECT=your-project-id
@@ -182,7 +182,7 @@ make deploy PROJECT=your-project-id
 > `make deploy` 使用 `adk deploy cloud_run` 指令，會自動打包並部署至 Cloud Run（含 Web UI）。
 > `PROJECT` 請替換成你的 GCP 專案 ID。
 
-### 7-3. 部署完成
+### 7-2. 部署完成
 
 部署完成後，終端機會輸出類似以下的 Service URL：
 
@@ -192,7 +192,7 @@ Service URL: https://google-adk-agent-template-xxxxxx-uc.a.run.app
 
 在瀏覽器開啟該網址，即可從公開網路存取你的 Agent。
 
-### 7-4. （選用）刪除 Cloud Run 服務
+### 7-3. （選用）刪除 Cloud Run 服務
 
 Workshop 結束後，若不再需要該服務，可執行以下指令刪除，避免產生額外費用：
 
