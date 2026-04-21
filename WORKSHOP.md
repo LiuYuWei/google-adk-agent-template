@@ -1,204 +1,94 @@
 # 🚀 Workshop 實作手冊：從零打造你的 Google ADK Agent
 
-本手冊將帶你一步一步完成 Agent 的開發與部署，預計耗時 **60–90 分鐘**。
+本手冊將帶你一步一步完成 Agent 的開發與部署，建議使用 **Google Cloud Shell** 進行操作。
 
 ---
 
-## 前置條件
+## Step 1：環境準備
 
-- Python 3.11 以上
-- Google Cloud 帳號（已建立專案並開啟帳單）
-- 已安裝 [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install)
-- 已安裝 Git
+### 1-1. 啟動 Cloud Shell
+登入 [Google Cloud Console](https://console.cloud.google.com/) 並點擊右上角的「啟用 Cloud Shell」。
 
----
-
-## Step 1：建立虛擬環境並安裝套件
-
+### 1-2. 複製專案與安裝工具
 ```bash
-# Clone 專案（若尚未 clone）
+# Clone 專案
 git clone https://github.com/LiuYuWei/google-adk-agent-template.git
 cd google-adk-agent-template
 
-# 建立 Python 虛擬環境
-make venv
-
-# 啟動虛擬環境
-source .venv/bin/activate
-
-# 安裝所需套件
-make install
+# 安裝自動化設定工具
+pip install bwai-workshop-tools
 ```
 
-> 若想一步完成（建立虛擬環境 + 安裝套件 + 初始化 `.env` 範本），可改用：
-> ```bash
-> make setup
-> source .venv/bin/activate
-> ```
-
 ---
 
-## Step 2：選擇你的 Agent 類型
+## Step 2：自動化環境初始化
 
-本專案提供兩種 Agent 範本，請依需求擇一：
-
-| Agent 類型 | 資料夾 | 適用情境 |
-| :--- | :--- | :--- |
-| **Gemini Agent** ⭐ 推薦 | `gemini_agent/` | 使用 Google Gemini 模型（Vertex AI） |
-| **LiteLLM Agent** | `litellm_agent/` | 使用 GPT、Claude 等多種第三方模型 |
-
-> Workshop 主要以 **`gemini_agent/`** 為主。
-
----
-
-## Step 3：填寫 `.env` 環境設定
-
-編輯 `gemini_agent/.env`，填入你的 Google Cloud 資訊：
+我們提供了一鍵設定指令，會自動處理：
+*   `gcloud` 登入與專案切換
+*   啟用必要 Google Cloud APIs
+*   Gemini CLI (Vertex AI) 認證
+*   Python 虛擬環境建立與套件安裝
 
 ```bash
-# 用任意編輯器開啟
-code gemini_agent/.env
+# 執行自動化設定
+bwai-workshop setup --step environment/bwai_env_config.json
+
+# 啟動虛擬環境 (此步驟必須手動執行)
+source .venv/bin/activate
 ```
 
-填寫以下欄位：
+> **驗證**: 若想確認環境是否準備好，可執行 `bwai-workshop verify --step environment/bwai_env_config.json`。
+
+---
+
+## Step 3：配置環境變數 (.env)
+
+使用 Cloud Shell 編輯器打開 `gemini_agent/.env`，確保內容包含以下資訊：
 
 ```dotenv
 # Vertex AI Configuration
 GOOGLE_GENAI_USE_VERTEXAI=1
-GOOGLE_CLOUD_PROJECT=your-project-id       # ← 改成你的 GCP 專案 ID
+GOOGLE_CLOUD_PROJECT=your-project-id       # 確認此處為您的 GCP 專案 ID
 GOOGLE_CLOUD_LOCATION=us-central1
 
 # Gemini Model Name
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
-確認 gcloud 已登入並設定好預設專案：
-
-```bash
-make auth PROJECT=your-project-id
-```
-
-> `make auth` 會依序執行：`gcloud auth login`、`gcloud auth application-default login`、`gcloud config set project`。
-
-登入完成後，啟用部署所需的 Google Cloud API：
-
-```bash
-make enable-apis
-```
-
-> API 啟用後可能需要 1–2 分鐘生效，可以先繼續後續步驟。
-
 ---
 
-## Step 4：啟動 ADK Web 介面（第一次測試）
+## Step 4：本地啟動與測試
 
+### 4-1. 啟動伺服器
 ```bash
 make run
 ```
 
-啟動後，在瀏覽器開啟：`http://localhost:8000`
+### 4-2. 網頁預覽
+點擊 Cloud Shell 右上角的 **「網頁預覽」** ➡️ **「在通訊埠 8000 上進行預覽」**。
 
-你應該能看到 ADK 的對話介面，並與預設的 Agent 互動（預設內建 `get_current_time` 工具）。
-
-> 確認可以正常對話後，按 `Ctrl+C` 停止伺服器，繼續下一步。
-
----
-
-## Step 5：自訂 Agent 行為與工具 (Tools)
-
-### 5-1. 修改 Agent 的角色指令
-
-編輯 `gemini_agent/instruction/system.md`，定義你的 Agent 角色與能力：
-
-```markdown
-# Role
-你是一個專業的 XX 助手。（← 改成你的 Agent 角色）
-
-# Capabilities
-你可以使用以下工具協助用戶：
-- 說明你新增的工具用途，讓 Agent 知道何時該用它
-```
-
-> `system.md` 決定了 Agent 的「性格與行為準則」，工具與指令要相互配合，Agent 才會在對的時機呼叫工具。
-
-### 5-2. 在 `tools/` 資料夾新增工具函式
-
-建立新檔案，例如 `gemini_agent/tools/my_tool.py`：
-
-```python
-def my_custom_tool(input: str) -> str:
-    """
-    這裡寫工具的說明。ADK 會根據這段 Docstring 決定何時呼叫此工具。
-
-    Args:
-        input: 使用者傳入的文字。
-
-    Returns:
-        str: 工具處理後回傳的結果。
-    """
-    # 在這裡實作你的邏輯
-    return f"你輸入了：{input}"
-```
-
-> **Docstring 非常重要**，它決定了 Agent 何時、為何要呼叫這個工具。
-
-### 5-3. 在 `agent.py` 中匯入並註冊工具
-
-編輯 `gemini_agent/agent.py`，加入兩行：
-
-```python
-# 匯入你的新工具
-from .tools.my_tool import my_custom_tool
-
-# 加入 tools 清單
-root_agent = Agent(
-    ...
-    tools=[get_current_time, my_custom_tool]   # ← 加在這裡
-)
-```
+> 您應該能看到 ADK 的對話介面。確認可以正常對話後，按 `Ctrl+C` 停止伺服器。
 
 ---
 
-## Step 6：重新啟動並測試新工具
+## Step 5：自訂開發 (開發重點)
 
-```bash
-make run
-```
+### 5-1. 修改角色指令 (System Instruction)
+編輯 `gemini_agent/instruction/system.md`，定義你的 Agent 角色（例如：毒舌工程師、專業理財專員等）。
 
-回到瀏覽器 `http://localhost:8000`，輸入對話測試你的新工具是否正常被呼叫。
-
-> 確認沒問題後，按 `Ctrl+C` 停止伺服器，準備部署。
+### 5-2. 新增工具 (Tools)
+在 `gemini_agent/tools/` 新增 Python 檔案，並在 `gemini_agent/agent.py` 中匯入並註冊至 `tools` 列表。
 
 ---
 
-## Step 7：部署到 Google Cloud Run
-
-### 7-1. 執行部署
+## Step 6：部署到 Google Cloud Run
 
 ```bash
-make deploy PROJECT=your-project-id
+# 一鍵部署至雲端
+make deploy PROJECT=$(gcloud config get-value project)
 ```
 
-> `make deploy` 使用 `adk deploy cloud_run` 指令，會自動打包並部署至 Cloud Run（含 Web UI）。
-> `PROJECT` 請替換成你的 GCP 專案 ID。
-
-### 7-2. 部署完成
-
-部署完成後，終端機會輸出類似以下的 Service URL：
-
-```
-Service URL: https://google-adk-agent-template-xxxxxx-uc.a.run.app
-```
-
-在瀏覽器開啟該網址，即可從公開網路存取你的 Agent。
-
-### 7-3. （選用）刪除 Cloud Run 服務
-
-Workshop 結束後，若不再需要該服務，可執行以下指令刪除，避免產生額外費用：
-
-```bash
-make destroy PROJECT=your-project-id
-```
+部署完成後，使用輸出中的 **Service URL** 即可從公開網路存取。
 
 ---
 
@@ -206,8 +96,7 @@ make destroy PROJECT=your-project-id
 
 | 問題 | 解法 |
 | :--- | :--- |
-| `make run` 出現 `ModuleNotFoundError` | 確認已執行 `source .venv/bin/activate` |
-| Agent 無法回應，顯示認證錯誤 | 確認 `.env` 的 `GOOGLE_CLOUD_PROJECT` 正確，且已執行 `gcloud auth application-default login` |
-| 工具沒有被 Agent 呼叫 | 確認 Docstring 描述清楚，且已在 `agent.py` 的 `tools=[]` 中註冊 |
-| Cloud Run 部署失敗（權限不足） | 確認帳號具有 `Cloud Run Admin` 與 `Cloud Build Editor` 角色 |
-| 部署後網頁打不開 | 確認部署時有加 `--with_ui` 旗標（`make deploy` 已預設包含） |
+| `make run` 報錯或找不到模組 | 確認已執行 `source .venv/bin/activate` |
+| 網頁預覽出現 404 | 確認 `make run` 指令已啟動完成，且使用的是 8000 通訊埠 |
+| 部署權限不足 | 確認您的帳號具有 `Owner` 或 `Cloud Run Admin` 權限 |
+
